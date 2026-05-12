@@ -1,0 +1,40 @@
+{
+  "document_type": "Unknown",
+  "extracted_fields": {
+    "property_owner": "SAMUEL OLADIPUPO ALABI",
+    "survey_plan_number": "R",
+    "state": "LAGOS STATE",
+    "area_sqm": "1134.321",
+    "scale": ":",
+    "ref_number": "Form",
+    "signing_official": "ExecutiveSecretary LandUse",
+    "issue_date": "28/11/2016",
+    "local_government": "S a-Oiu Eape famy"
+  },
+  "_extraction_metadata": {
+    "document_type_detected": "unknown",
+    "source_pages": {
+      "property_owner": 2,
+      "survey_plan_number": 2,
+      "state": 2,
+      "area_sqm": 2,
+      "scale": 2,
+      "ref_number": 3,
+      "signing_official": 3,
+      "issue_date": 1,
+      "local_government": 7
+    },
+    "fields_found": [
+      "property_owner",
+      "survey_plan_number",
+      "state",
+      "area_sqm",
+      "scale",
+      "ref_number",
+      "signing_official",
+      "issue_date",
+      "local_government"
+    ],
+    "total_pages": 9
+  }
+}
