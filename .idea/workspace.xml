@@ -5,19 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="33e98abb-a317-4e18-b609-09fa9c7ca32b" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/LandCheck.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/verification_engine/,gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/verification_engine/OCR/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/verification_engine/OCR/extraction.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/verification_engine/OCR/ocr_run.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/verification_engine/OCR/test.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/verification_engine/OCR/verification_results/test_extracted_20260512_120902.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/verification_engine/layoutLMV3/extractor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/verification_engine/vision_model/preprocessor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/verification_engine/OCR/extraction.py" beforeDir="false" afterPath="$PROJECT_DIR$/verification_engine/OCR/extraction.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/verification_engine/OCR/ocr_run.py" beforeDir="false" afterPath="$PROJECT_DIR$/verification_engine/OCR/ocr_run.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/verification_engine/OCR/verification_results/test_extracted_20260512_120902.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,7 +43,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "chimaobi/verification__engine",
+    "git-widget-placeholder": "chimaobi/vision-model",
     "junie.onboarding.icon.badge.shown": "true",
     "last_opened_file_path": "C:/Users/HP/PycharmProjects/LandCheck/verification_engine/OCR"
   }

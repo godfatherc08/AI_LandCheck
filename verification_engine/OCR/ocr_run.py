@@ -1,3 +1,5 @@
+# verification_engine/OCR/ocr_run.py
+
 from verification_engine.OCR.extraction import LandVerifyOCR
 from verification_engine.layoutLMV3.extractor import LayoutLMv3Extractor
 from pathlib import Path
@@ -5,14 +7,24 @@ import time
 import json
 from datetime import datetime
 
-# Initialize components
-ocr_engine = LandVerifyOCR(languages=['en'])
-extractor = LayoutLMv3Extractor()  # PURE EXTRACTION ONLY
+# Initialize with vision enabled
+print("=" * 60)
+print("VERITAS - LAND VERIFICATION ENGINE")
+print("=" * 60)
+print("Vision forgery detection: ENABLED (sensitivity: high)")
+print("=" * 60)
 
-# ============================================
-# SET YOUR INPUT FILE HERE
-# ============================================
-input_file = ("test.pdf")
+ocr_engine = LandVerifyOCR(
+    languages=['en'],
+    enable_vision=True,
+    sensitivity='high'
+)
+
+extractor = LayoutLMv3Extractor()
+
+# Input file
+input_file = "test.pdf"
+file_ext = Path(input_file).suffix.lower()
 
 # Create output directory
 output_dir = Path("verification_results")
@@ -21,85 +33,62 @@ output_dir.mkdir(exist_ok=True)
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 base_name = Path(input_file).stem
 
-# Two separate outputs:
-# 1. Raw extracted data (pure extraction)
-# 2. Full verification result (extraction + judgment)
-extracted_json_path = output_dir / f"{base_name}_extracted_{timestamp}.json"
-full_verification_path = output_dir / f"{base_name}_verification_{timestamp}.json"
-
-# ============================================
-# PROCESS DOCUMENT
-# ============================================
-file_ext = Path(input_file).suffix.lower()
 start_time = time.time()
 
-print("=" * 60)
-print("VERITAS - LAND VERIFICATION ENGINE")
-print("=" * 60)
-print(f"Input file: {input_file}")
-print("=" * 60)
-
-# Collect all page data for extraction
-all_page_data = []
-
+# Process based on file type
 if file_ext == '.pdf':
-    print("\n📄 Processing PDF...")
+    print(f"\n📄 Processing PDF: {input_file}")
 
-    for page_result in ocr_engine.process_pages_streaming(input_file, max_pages=None):
-        all_page_data.append(page_result)
-        print(f"✓ Page {page_result['page_number']} OCR complete")
+    # Get full analysis with vision
+    result = ocr_engine.get_full_analysis(input_file, max_pages=None)
 
-# ============================================
-# STEP 1: PURE EXTRACTION (LayoutLMv3's job)
-# ============================================
-print("\n" + "=" * 60)
-print("STEP 1: STRUCTURED EXTRACTION (LayoutLMv3)")
-print("=" * 60)
+    # Extract fields using LayoutLMv3
+    extracted_data = extractor.extract_full_document(result['page_data'])
 
-extracted_data = extractor.extract_full_document(all_page_data)
+    # Display vision summary
+    print("\n" + "=" * 60)
+    print("VISION ANALYSIS RESULTS")
+    print("=" * 60)
 
-print("\n📋 Extracted Document Data:")
-print(json.dumps(extracted_data, indent=2, default=str))
+    if result['vision_summary']:
+        vs = result['vision_summary']
+        print(f"Pages analyzed: {vs['pages_analyzed']}")
+        print(f"Likely Forged pages: {vs['forged_pages']}")
+        print(f"Suspicious pages: {vs['suspicious_pages']}")
 
-# Save pure extracted data
-with open(extracted_json_path, 'w', encoding='utf-8') as f:
-    json.dump(extracted_data, f, indent=2, ensure_ascii=False, default=str)
+        if vs['forged_pages']:
+            print("\n⚠️ FORGERY INDICATORS DETECTED:")
+            for flag in vs['all_flags']:
+                print(f"   • {flag['check'].upper()}: {flag['reason'][:100]}...")
 
-print(f"\n💾 Extracted data saved to: {extracted_json_path}")
+    # Display extracted data
+    print("\n" + "=" * 60)
+    print("EXTRACTED DOCUMENT DATA")
+    print("=" * 60)
 
-# ============================================
-# STEP 2: VERIFICATION (Separate system)
-# ============================================
-print("\n" + "=" * 60)
-print("STEP 2: VERIFICATION (Rules Engine + External Sources + Bayesian)")
-print("=" * 60)
+    for key, value in extracted_data.items():
+        if not key.startswith('_') and value:
+            print(f"   {key}: {value}")
 
-# This is where you add your verification logic
-# For now, just a placeholder
-verification_result = {
-    "extracted_data": extracted_data,
-    "verification": {
-        "plausibility_checks": {},  # From Rules Engine
-        "external_verification": {},  # From CAC, e-GIS, etc.
-        "trust_score": None,
-        "verdict": None,
-        "squad_action": None
+    # Build final output
+    final_output = {
+        "verification_id": f"VRT-{timestamp}",
+        "timestamp": datetime.now().isoformat(),
+        "source_file": input_file,
+        "processing_time_seconds": round(time.time() - start_time, 2),
+        "vision_analysis": result['vision_summary'],
+        "extracted_data": extracted_data,
+        "total_pages": len(result['page_data']),
+        "total_tokens": len(result['tokens'])
     }
-}
 
-# ============================================
-# DISPLAY RESULTS
-# ============================================
-elapsed_time = time.time() - start_time
+    # Save to JSON
+    output_path = output_dir / f"{base_name}_full_analysis_{timestamp}.json"
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(final_output, f, indent=2, ensure_ascii=False, default=str)
 
-print("\n" + "=" * 60)
-print("FINAL OUTPUT")
-print("=" * 60)
-print(f"✅ Processing complete in {elapsed_time:.2f} seconds")
-print(f"\n📄 Extracted Document (No Judgment):")
-print("-" * 40)
+    print(f"\n💾 Full analysis saved to: {output_path}")
+    print(f"✅ Completed in {final_output['processing_time_seconds']:.2f} seconds")
 
-# Display only the extracted fields (no judgment)
-for key, value in extracted_data.items():
-    if not key.startswith('_'):  # Skip metadata
-        print(f"   {key}: {value}")
+else:
+    print(f"Unsupported file type: {file_ext}")
