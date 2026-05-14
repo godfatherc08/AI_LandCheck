@@ -259,27 +259,6 @@ The system returns structured JSON for systems integration and markdown reports 
 
 ---
 
-## Project Structure
-
-```text
-veritas/
-+-- api_server.py
-+-- Dockerfile
-+-- requirements.txt
-+-- .env.example
-+-- api/
-�   +-- main.py
-+-- verification_engine/
-�   +-- OCR/
-�   +-- agent/
-�   +-- vision_model/
-�   +-- anomaly/
-�   +-- layoutLMV3/
-�   +-- rules/
-+-- verification_results/
-```
-
----
 
 ### Local Development
 
@@ -326,15 +305,7 @@ This project is licensed under the MIT License. See `LICENSE` for full text.
 ## Acknowledgements
 
 - Squad Hackathon
-- Lagos State Government
 - Groq
 - Open Source Community
 
 ---
-
-## Contact
-
-- Author: Veritas Team
-- Email: your-email@example.com
-- GitHub: https://github.com/your-username/veritas
-- Twitter/X: https://x.com/your-handle
