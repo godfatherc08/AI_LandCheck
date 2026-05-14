@@ -1,1 +1,7 @@
 /verification_engine/OCR/verification_results/
+/verification_engine/agent/.env
+/verification_engine/OCR/verification_results
+/verification_engine/anomaly/
+/verification_engine/OCR/test.pdf
+/verification_engine/OCR/test.png
+/verification_engine/OCR/test_fake.png

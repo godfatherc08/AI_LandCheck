@@ -1,4 +1,4 @@
-# verification_engine/vision/preprocessor.py
+                                            
 
 import cv2
 import numpy as np
