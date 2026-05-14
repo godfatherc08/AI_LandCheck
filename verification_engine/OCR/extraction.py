@@ -1,220 +1,140 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
+"""
+Updated OCR extraction using DocumentIntelligence pipeline
+Zone-aware OCR + stamp/signature detection + cross-validation
+"""
+
+from verification_engine.vision_model.document_intelligence import DocumentIntelligence
+from verification_engine.vision_model.forgery import ForgeryDetector
 import numpy as np
-from typing import Dict, List, Optional, Generator
-from dataclasses import dataclass
-import fitz
 from PIL import Image
-from rapidocr_onnxruntime import RapidOCR
-import io
-
-
-@dataclass
-class OCRResult:
-    text: str
-    confidence: float
-    bbox: List[List[int]]
-    page_num: int
+from typing import Dict, List, Optional
+import time
 
 
 class LandVerifyOCR:
+    """
+    Enhanced OCR using DocumentIntelligence pipeline
+    Combines zone-aware OCR with forgery detection
+    """
 
-    def __init__(self, languages: List[str] = None):
-        if languages is None:
-            languages = ['en']
-        self.languages = languages
-        self._reader = None
+    def __init__(self, languages: List[str] = None, enable_vision: bool = True,
+                 sensitivity: str = 'medium'):
+        self.enable_vision = enable_vision
+        self.doc_intel = DocumentIntelligence()
 
-    def _get_reader(self):
-        if self._reader is None:
-            # OCR: use_angle_cls catches rotated text, show_log silences spam
-            self._reader = RapidOCR()
-        return self._reader
+        if enable_vision:
+            self.forgery_detector = ForgeryDetector(sensitivity=sensitivity)
+        else:
+            self.forgery_detector = None
 
-    def extract_images_from_pdf(self, pdf_path: str, max_pages: Optional[int] = None):
+    def process_page(self, image: Image.Image, page_num: int = 1) -> Dict:
+        """
+        Process a single page using DocumentIntelligence pipeline
+
+        Returns:
+            Dict with:
+            - extracted_fields: Structured fields from zone-aware extraction
+            - zones: Zones detected
+            - stamp_info: Stamp detection results
+            - signature_info: Signature detection results
+            - validation: Cross-field validation results
+            - vision_forgery: Original forgery detection results
+            - page_text: Combined OCR text
+        """
+        image_np = np.array(image)
+
+                                           
+        result = self.doc_intel.process(image_np)
+
+                                             
+        extracted_fields = {}
+        for field_name, field_data in result.fields.items():
+            extracted_fields[field_name] = {
+                "value": field_data.cleaned_text,
+                "confidence": field_data.confidence,
+                "zone": field_data.zone,
+                "page": page_num
+            }
+
+                                          
+        vision_result = None
+        if self.forgery_detector:
+            vision_result = self.forgery_detector.analyze(image_np)
+
+                                        
+        page_text = " ".join([
+            r[1] for zone_results in result.raw_ocr_by_zone.values()
+            for r in zone_results
+        ])
+
+        return {
+            'page_number': page_num,
+            'page_text': page_text,
+            'tokens': page_text.split(),
+            'boxes': [],                                                       
+            'image': image,
+            'document_intelligence': {
+                'fields': extracted_fields,
+                'zones_found': result.zones_found,
+                'stamp_detected': result.stamp_detected,
+                'stamp_confidence': result.stamp_confidence,
+                'signature_detected': result.signature_detected,
+                'seal_detected': result.seal_detected,
+                'document_orientation': result.document_orientation,
+                'overall_ocr_confidence': result.overall_ocr_confidence,
+                'warnings': result.warnings,
+                'validation_passed': result.warnings == []
+            },
+            'vision_forgery': vision_result
+        }
+
+    def process_image_file(self, image_path: str) -> Dict:
+        """Process a single image file"""
+        from PIL import Image
+
+        print(f"📸 Processing image: {image_path}")
+
+                    
+        image = Image.open(image_path)
+
+                           
+        result = self.process_page(image, page_num=1)
+
+                                              
+        if 'document_intelligence' in result:
+            fields = result['document_intelligence'].get('fields', {})
+            print(f"📋 Extracted {len(fields)} fields from document")
+            for field_name, field_data in fields.items():
+                print(f"   - {field_name}: {field_data.get('cleaned_text', field_data.get('value', 'N/A'))}")
+
+        return result
+    def process_pdf_pages(self, pdf_path: str, max_pages: Optional[int] = None) -> List[Dict]:
+        """Process all pages of a PDF"""
+        import fitz
+
         doc = fitz.open(pdf_path)
         total_pages = min(len(doc), max_pages) if max_pages else len(doc)
-        page_images = []
+        results = []
 
         for page_num in range(total_pages):
             page = doc[page_num]
             mat = fitz.Matrix(1.5, 1.5)
             pix = page.get_pixmap(matrix=mat)
-            image = Image.open(io.BytesIO(pix.tobytes("png")))
-            page_images.append({
-                'page_number': page_num + 1,
-                'image': image,
-                'size': image.size,
-                'mode': image.mode
-            })
+            image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+            page_result = self.process_page(image, page_num + 1)
+            results.append(page_result)
+            print(
+                f"✓ Page {page_num + 1} processed (stamp: {page_result['document_intelligence']['stamp_detected']}, sig: {page_result['document_intelligence']['signature_detected']})")
 
         doc.close()
-        return {'images': page_images, 'total_pages': total_pages, 'source_pdf': pdf_path}
-
-    def process_image_array(self, image: Image.Image, page_num: int = 1) -> List[OCRResult]:
-        reader = self._get_reader()
-        image_np = np.array(image)
-        result, _ = reader(image_np)  # ← call reader() directly, not reader.ocr()
-        return self.convert_to_ocr_results(result or [], page_num)
-
-    def process_image_file(self, image_path: str) -> List[OCRResult]:
-        reader = self._get_reader()
-        result, _ = reader(image_path)  # ← same here
-        return self.convert_to_ocr_results(result or [], page_num=1)
-
-    def convert_to_ocr_results(self, rapid_output, page_num: int) -> List[OCRResult]:
-        results = []
-        if not rapid_output:
-            return results
-        for line in rapid_output:
-            bbox, text, confidence = line[0], line[1], line[2]
-            results.append(OCRResult(
-                text=text,
-                confidence=float(confidence),
-                bbox=bbox,
-                page_num=page_num
-            ))
         return results
 
-    def process_pages_parallel(self, images_data: Dict, max_workers: int = 4) -> Dict:
-        reader = self._get_reader()  # get the instance once
-        images = images_data['images']
-        page_results = {}
+    def process_image_file(self, image_path: str) -> Dict:
+        """Process a single image file"""
+        image = Image.open(image_path)
+        return self.process_page(image, 1)
 
-        def ocr_page(page):
-            image_np = np.array(page['image'])
-            result, _ = reader(image_np)  # pass reader directly, no self._get_reader() call
-            return self.convert_to_ocr_results(result or [], page['page_number'])
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_page = {
-                executor.submit(ocr_page, page): page
-                for page in images
-            }
-            for future in as_completed(future_to_page):
-                page = future_to_page[future]
-                try:
-                    page_results[page['page_number']] = future.result()
-                    print(f"✓ Page {page['page_number']}")
-                except Exception as e:
-                    print(f"✗ Page {page['page_number']}: {e}")
-                    page_results[page['page_number']] = []
-
-        all_ocr_results = []
-        for page_num in sorted(page_results):
-            all_ocr_results.extend(page_results[page_num])
-
-        return {'ocr_results': all_ocr_results}
-    def get_layoutlmv3_format(self, pdf_path: str, max_pages: Optional[int] = None) -> Dict:
-        images_data = self.extract_images_from_pdf(pdf_path, max_pages)
-
-        # Use parallel processing instead of sequential
-        parallel_result = self.process_pages_parallel(images_data)
-
-        tokens, boxes, confidences, page_texts = [], [], [], {}
-
-        for res in parallel_result['ocr_results']:
-            tokens.append(res.text)
-            confidences.append(res.confidence)
-            x1, y1 = res.bbox[0]
-            x2, y2 = res.bbox[2]
-            boxes.append([int(x1), int(y1), int(x2), int(y2)])
-            page_texts.setdefault(res.page_num, []).append(res.text)
-
-        full_text = '\n\n'.join(
-            ' '.join(page_texts[p]) for p in sorted(page_texts)
-        )
-
-        return {'tokens': tokens, 'boxes': boxes, 'confidences': confidences, 'full_text': full_text}
-
-    def process_pages_streaming(self, pdf_path: str, max_pages: Optional[int] = None,
-                                max_workers: int = 4) -> Generator[Dict, None, None]:
-        """
-        Process PDF pages in parallel and YIELD results as each page completes.
-        This allows LayoutLMv3 to start processing immediately.
-
-        Yields:
-            Dict with page_number, tokens, boxes, confidences, page_text
-        """
-        # Extract images first
-        images_data = self.extract_images_from_pdf(pdf_path, max_pages)
-        images = images_data['images']
-        reader = self._get_reader()
-
-        def ocr_page(page):
-            """OCR a single page and return results"""
-            image_np = np.array(page['image'])
-            result, _ = reader(image_np)
-            ocr_results = self.convert_to_ocr_results(result or [], page['page_number'])
-
-            # Convert to LayoutLMv3 format immediately
-            tokens = []
-            boxes = []
-            confidences = []
-
-            for res in ocr_results:
-                tokens.append(res.text)
-                confidences.append(res.confidence)
-                x1, y1 = res.bbox[0]
-                x2, y2 = res.bbox[2]
-                boxes.append([int(x1), int(y1), int(x2), int(y2)])
-
-            return {
-                'page_number': page['page_number'],
-                'tokens': tokens,
-                'boxes': boxes,
-                'confidences': confidences,
-                'page_text': ' '.join(tokens),
-                'status': 'success'
-            }
-
-        # Submit all pages and yield as they complete
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_page = {
-                executor.submit(ocr_page, page): page
-                for page in images
-            }
-
-            for future in as_completed(future_to_page):
-                page = future_to_page[future]
-                try:
-                    result = future.result()
-                    print(f"✓ Page {page['page_number']} ready for LayoutLMv3")
-                    yield result  # ← YIELD immediately, don't wait for other pages
-                except Exception as e:
-                    print(f"✗ Page {page['page_number']} failed: {e}")
-                    yield {
-                        'page_number': page['page_number'],
-                        'tokens': [],
-                        'boxes': [],
-                        'confidences': [],
-                        'page_text': '',
-                        'status': 'failed',
-                        'error': str(e)
-                    }
-
-    def get_layoutlmv3_format_streaming(self, pdf_path: str, max_pages: Optional[int] = None) -> Dict:
-        """
-        Process PDF and return combined results (waits for all pages).
-        Use this when you want the final complete result.
-        """
-        all_tokens = []
-        all_boxes = []
-        all_confidences = []
-        all_page_texts = {}
-
-        # Process pages as they complete
-        for page_result in self.process_pages_streaming(pdf_path, max_pages):
-            page_num = page_result['page_number']
-            all_tokens.extend(page_result['tokens'])
-            all_boxes.extend(page_result['boxes'])
-            all_confidences.extend(page_result['confidences'])
-            all_page_texts[page_num] = page_result['page_text']
-
-        full_text = '\n\n'.join(all_page_texts[p] for p in sorted(all_page_texts))
-
-        return {
-            'tokens': all_tokens,
-            'boxes': all_boxes,
-            'confidences': all_confidences,
-            'full_text': full_text
-        }
+                                               
+LandVerifyOCRCompat = LandVerifyOCR
