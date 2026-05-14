@@ -1,10 +1,10 @@
-"""LLM client initialization - Groq (Llama 3.3 70B)"""
-
+# verification_engine/agent/llm.py
 import os
-from typing import Optional
-from groq import Groq
 from dotenv import load_dotenv
+from groq import Groq
+from typing import Optional
 
+# Load environment variables from .env file
 load_dotenv()
 
 class LLMClient:
@@ -26,18 +26,21 @@ class LLMClient:
         if self._client is None:
             api_key = os.environ.get("GROQ_API_KEY")
             if not api_key:
-                raise ValueError("GROQ_API_KEY environment variable not set")
+                # For demo mode, don't fail - just use fallback
+                print("⚠️ GROQ_API_KEY not set. Using fallback verification (demo mode).")
+                self._client = None
+                return
             self._client = Groq(api_key=api_key)
 
     @property
-    def client(self) -> Groq:
-        """Get the Groq client instance"""
+    def client(self) -> Optional[Groq]:
+        """Get the Groq client instance (may be None in demo mode)"""
         self._ensure_client()
         return self._client
 
 
-def get_llm_client() -> Groq:
-    """Convenience function to get LLM client"""
+def get_llm_client() -> Optional[Groq]:
+    """Get LLM client or None if not configured"""
     return LLMClient().client
 
 
