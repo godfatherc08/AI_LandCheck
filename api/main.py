@@ -103,8 +103,11 @@ async def _run_verification(file: UploadFile) -> Dict:
             ocr_full_text=full_text
         )
 
+        llm_explanation = get_llm_explanation(offline_verdict, flat_fields)
+
         processing_time = timer.time() - start_time
         markdown_report = generate_markdown_report(
+            llm_explanation=llm_explanation,
             filename=file.filename,
             processing_time=processing_time,
             flat_fields=flat_fields,
@@ -121,7 +124,8 @@ async def _run_verification(file: UploadFile) -> Dict:
             "trust_score": offline_verdict.get("trust_score", 70),
             "squad_action": offline_verdict.get("squad_action", "HOLD_FUNDS_IN_ESCROW"),
             "processing_time_seconds": round(processing_time, 2),
-            "report": markdown_report
+            "report": markdown_report,
+            "ai_explanation": llm_explanation
         }
     finally:
         if os.path.exists(tmp_path):
@@ -130,7 +134,7 @@ async def _run_verification(file: UploadFile) -> Dict:
 
 def generate_markdown_report(filename: str, processing_time: float, flat_fields: Dict,
                              vision_result: Dict, offline_verdict: Dict, all_warnings: list,
-                             stamp_detected: bool, signature_detected: bool) -> str:
+                             stamp_detected: bool, signature_detected: bool,  llm_explanation: str = "") -> str:
     overall_risk = offline_verdict.get("overall_risk", "MEDIUM")
     trust_score = offline_verdict.get("trust_score", 70)
     squad_action = offline_verdict.get("squad_action", "HOLD_FUNDS_IN_ESCROW")
@@ -154,7 +158,7 @@ def generate_markdown_report(filename: str, processing_time: float, flat_fields:
 **Recommended Action: {squad_action}**
 **Processing Time: {processing_time:.1f} seconds**
 
-{recommendation}
+{llm_explanation if llm_explanation else offline_verdict.get('recommendation', 'Review required')}
 
 ## EXTRACTED INFORMATION
 
@@ -212,6 +216,47 @@ def generate_markdown_report(filename: str, processing_time: float, flat_fields:
 
     return report
 
+
+# Add at the top with other imports
+import os
+from groq import Groq
+
+
+def get_llm_explanation(offline_verdict: Dict, extracted_fields: Dict) -> str:
+    """Use Groq LLM to generate explanation (does NOT change verdict)"""
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return offline_verdict.get("recommendation", "Review required")
+
+    try:
+        client = Groq(api_key=api_key)
+
+        prompt = f"""You are a document verification expert. Explain this verdict in 2-3 sentences.
+
+VERDICT: {offline_verdict.get('overall_risk', 'MEDIUM')} RISK
+TRUST SCORE: {offline_verdict.get('trust_score', 70)}/100
+ACTION: {offline_verdict.get('squad_action', 'HOLD')}
+
+SIGNALS:
+{', '.join([s.get('tool', 'unknown') + ': ' + s.get('severity', 'PASS') for s in offline_verdict.get('signals', [])[:5]])}
+
+Extracted Owner: {extracted_fields.get('property_owner', extracted_fields.get('registered_owner', 'Unknown'))}
+
+Write a short, clear explanation for a bank officer.
+"""
+
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=150
+        )
+
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        print(f"LLM explanation failed: {e}")
+        return offline_verdict.get("recommendation", "Review required")
 
 if __name__ == "__main__":
     import uvicorn
