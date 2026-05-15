@@ -12,18 +12,56 @@
 
 - `??` Document Intelligence: zone-aware OCR with field extraction.
 - `??` Vision Forensics: multi-check image tamper analysis.
-- `??` Offline Verification: deterministic forensic rules and validators.
+- `??` Verification: forensic rules and validators.
 - `??` AI-Powered Reports: human-readable markdown verification output.
 - `??` REST API: FastAPI endpoints for JSON and report workflows.
 - `???` Open Source: modular architecture for extension and auditability.
 
+---
+```mermaid
+flowchart TB
+    subgraph Processing[" DOCUMENT PROCESSING"]
+        A[PDF/Image Upload] --> B[Deskew + Denoise]
+        B --> C[Zone Segmentation]
+        C --> D[RapidOCR]
+    end
+
+    subgraph Authentication[" AUTHENTICATION"]
+        E[Vision Forensics<br/>5 forgery checks]
+        F[Stamp/Signature<br/>Detection]
+        G[Offline Rules<br/>7 validators]
+    end
+
+    subgraph Agent[" AGENT VERIFICATION"]
+        H[AI Agent<br/>Groq Llama 3.3]
+    end
+
+    subgraph Output[" OUTPUT"]
+        K[Risk Level<br/>LOW/MEDIUM/HIGH]
+        L[Squad Action<br/>RELEASE/HOLD/BLOCK]
+    end
+
+    D --> E & F & G
+    E & F & G --> H
+    H 
+    H --> K & L
+
+```
+---
+
+| Zone | What Happens | Technologies |
+|------|--------------|--------------|
+| **DOCUMENT PROCESSING** | Deskew, denoise, zone segmentation, OCR | OpenCV, RapidOCR |
+| **AUTHENTICATION** | Vision forensics (5 checks), stamp/signature detection, rules (7 validators) | ELA, Noise, Edge, Luminance, Contour Analysis |
+| **AGENT VERIFICATION** | Signal aggregation | Groq Llama 3.3 70B |
+| **OUTPUT** | Risk level + Squad action | LOW/MEDIUM/HIGH → RELEASE/HOLD/BLOCK |
 ---
 
 ## Live Demo
 
 Deployed endpoint:
 
-`https://landcheck-api.onrender.com`
+`https://ai-landcheck.onrender.com/`
 
 Test command:
 
@@ -237,7 +275,7 @@ Document pages are segmented and parsed into text, coordinates, confidence, and 
 | Edge Sharpness | Pasted-content edge mismatch |
 | Text Integrity | Character-level tamper signals |
 
-### Stage 3: Offline Verification (7 tools)
+### Stage 3: Verification (7 tools)
 
 | Tool | Focus |
 |------|-------|
