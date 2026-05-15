@@ -66,7 +66,7 @@ Deployed endpoint:
 Test command:
 
 ```bash
-curl -X POST -F "file=@test.png" https://veritas-api.onrender.com/verify
+curl -X POST -F "file=@test.png" https://ai-landcheck.onrender.com/verify/report
 ```
 
 ---
@@ -101,8 +101,7 @@ curl -X POST -F "file=@test.png" https://veritas-api.onrender.com/verify
 ### Step 1: Clone the repository
 
 ```bash
-git clone https://github.com/your-username/veritas.git
-cd veritas
+git clone https://github.com/godfatherc08/AI_LandCheck
 ```
 
 ### Step 2: Create a virtual environment
@@ -155,13 +154,8 @@ GROQ_API_KEY=
 
 Variable details:
 
-- `GROQ_API_KEY` (optional): Groq API key for report/agent capabilities. Get from https://console.groq.com
+- `GROQ_API_KEY`: Groq API key for report/agent capabilities. Get from https://console.groq.com
 
-Security notes:
-
-- Never commit `.env` to git.
-- Rotate keys if exposed.
-- Use different keys per environment (dev/staging/prod).
 
 ---
 
