@@ -61,12 +61,12 @@ flowchart TB
 
 Deployed endpoint:
 
-`https://ai-landcheck.onrender.com/`
+`https://ailandcheck-production.up.railway.app`
 
 Test command:
 
 ```bash
-curl -X POST -F "file=@test.png" https://ai-landcheck.onrender.com/verify/report
+curl -X POST -F "file=@test.png" https://ailandcheck-production.up.railway.app/verify
 ```
 
 ---
